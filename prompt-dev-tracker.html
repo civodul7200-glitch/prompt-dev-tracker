@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Dev Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #0f0f1a;
+    --bg3: #141420;
+    --border: #1e1e2e;
+    --border2: #2a2a3e;
+    --green: #00ff88;
+    --green2: #00cc6a;
+    --green-dim: rgba(0,255,136,0.08);
+    --green-glow: rgba(0,255,136,0.15);
+    --amber: #ffb347;
+    --red: #ff5f6d;
+    --blue: #4fc3f7;
+    --purple: #b48eff;
+    --text: #c8c8d8;
+    --text2: #7878a0;
+    --text3: #4a4a6a;
+    --radius: 6px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--green);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--green);
+    font-size: 14px;
+    box-shadow: 0 0 12px var(--green-glow);
+  }
+
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 15px;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+
+  .logo-text span { color: var(--green); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stats-pill {
+    background: var(--green-dim);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: var(--green);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* Sidebar */
+  aside {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 57px;
+    height: calc(100vh - 57px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-section {
+    padding: 0 12px;
+    margin-bottom: 20px;
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 0 4px;
+    margin-bottom: 6px;
+  }
+
+  .filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { background: var(--border); color: var(--text); }
+  .filter-btn.active { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+
+  .filter-btn .count {
+    margin-left: auto;
+    background: var(--border);
+    color: var(--text3);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .filter-btn.active .count {
+    background: rgba(0,255,136,0.15);
+    color: var(--green2);
+  }
+
+  .tag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* Main */
+  main {
+    padding: 20px 24px;
+    background: var(--bg);
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+  }
+
+  .search-wrap::before {
+    content: '⌕';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-size: 16px;
+  }
+
+  input[type="text"], textarea, select {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.1);
+  }
+
+  .search-wrap input { padding-left: 32px; }
+
+  select { cursor: pointer; }
+
+  select option { background: var(--bg2); }
+
+  .btn {
+    padding: 8px 14px;
+    border-radius: var(--radius);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--green);
+    color: #000;
+  }
+  .btn-primary:hover { background: var(--green2); box-shadow: 0 0 16px var(--green-glow); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text3); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid rgba(255,95,109,0.3);
+  }
+  .btn-danger:hover { background: rgba(255,95,109,0.1); }
+
+  /* Cards grid */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--green);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .card:hover {
+    border-color: var(--border2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .card:hover::before { opacity: 1; }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    line-height: 1.3;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+
+  .card:hover .card-actions { opacity: 1; }
+
+  .icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .icon-btn:hover { background: var(--border); color: var(--text); }
+  .icon-btn.copy:hover { color: var(--green); }
+  .icon-btn.del:hover { color: var(--red); }
+
+  .card-prompt {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.6;
+    max-height: 80px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .card-prompt::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 24px;
+    background: linear-gradient(transparent, var(--bg3));
+  }
+
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .tag:hover { opacity: 0.7; }
+
+  .tag-js { background: rgba(255,179,71,0.15); color: var(--amber); border: 1px solid rgba(255,179,71,0.25); }
+  .tag-css { background: rgba(79,195,247,0.12); color: var(--blue); border: 1px solid rgba(79,195,247,0.2); }
+  .tag-debug { background: rgba(255,95,109,0.12); color: var(--red); border: 1px solid rgba(255,95,109,0.2); }
+  .tag-git { background: rgba(180,142,255,0.12); color: var(--purple); border: 1px solid rgba(180,142,255,0.2); }
+  .tag-html { background: rgba(255,100,50,0.12); color: #ff8c5a; border: 1px solid rgba(255,100,50,0.2); }
+  .tag-arch { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+  .tag-api { background: rgba(100,180,255,0.12); color: #64b4ff; border: 1px solid rgba(100,180,255,0.2); }
+  .tag-review { background: rgba(255,220,100,0.1); color: #ffd864; border: 1px solid rgba(255,220,100,0.2); }
+  .tag-default { background: var(--border); color: var(--text2); border: 1px solid var(--border2); }
+
+  .stars {
+    display: flex;
+    gap: 2px;
+  }
+
+  .star {
+    font-size: 12px;
+    color: var(--text3);
+    cursor: pointer;
+    transition: color 0.1s;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  .star.active { color: var(--amber); }
+  .star:hover { color: var(--amber); }
+
+  .card-date {
+    font-size: 10px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+
+  /* Result badge */
+  .result-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .result-ok { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+  .result-partial { background: rgba(255,179,71,0.1); color: var(--amber); border: 1px solid rgba(255,179,71,0.2); }
+  .result-ko { background: rgba(255,95,109,0.1); color: var(--red); border: 1px solid rgba(255,95,109,0.2); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 580px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.97) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .modal-title .dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  .form-row {
+    margin-bottom: 14px;
+  }
+
+  label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.6;
+  }
+
+  .rating-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .rating-star {
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--text3);
+    background: none;
+    border: none;
+    transition: color 0.1s, transform 0.1s;
+    line-height: 1;
+  }
+  .rating-star.active { color: var(--amber); }
+  .rating-star:hover { transform: scale(1.2); }
+
+  .result-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .result-opt {
+    flex: 1;
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .result-opt:hover { border-color: var(--text3); color: var(--text); }
+  .result-opt.sel-ok { background: rgba(0,255,136,0.1); color: var(--green); border-color: rgba(0,255,136,0.4); }
+  .result-opt.sel-partial { background: rgba(255,179,71,0.1); color: var(--amber); border-color: rgba(255,179,71,0.4); }
+  .result-opt.sel-ko { background: rgba(255,95,109,0.1); color: var(--red); border-color: rgba(255,95,109,0.4); }
+
+  .modal-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Detail modal */
+  .detail-prompt {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    margin-bottom: 14px;
+    position: relative;
+  }
+
+  .copy-overlay {
+    position: absolute;
+    top: 8px; right: 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .detail-prompt:hover .copy-overlay { opacity: 1; }
+
+  /* Empty state */
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .empty-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    color: var(--text2);
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    box-shadow: 0 0 20px rgba(0,255,136,0.2);
+    z-index: 999;
+    transform: translateY(10px);
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Source pill */
+  .source-pill {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(180,142,255,0.1);
+    color: var(--purple);
+    border: 1px solid rgba(180,142,255,0.2);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 8px; height: 14px;
+    background: var(--green);
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+    box-shadow: 0 0 6px var(--green);
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { display: none; }
+    .cards-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⌘</div>
+    <div class="logo-text">Prompt<span>Dev</span> Tracker<span class="cursor-blink"></span></div>
+  </div>
+  <div class="header-right">
+    <span class="stats-pill" id="stats-pill">0 prompts</span>
+    <button class="btn btn-primary" onclick="openAddModal()">+ Nouveau prompt</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Filtrer</div>
+      <div class="tag-list">
+        <button class="filter-btn active" onclick="setFilter('all', this)">
+          <span>◈ Tous</span>
+          <span class="count" id="count-all">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('★★★★★', this)">
+          <span>★ Top rated</span>
+          <span class="count" id="count-top">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('ok', this)">
+          <span>✓ Efficaces</span>
+          <span class="count" id="count-ok">0</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Par techno</div>
+      <div class="tag-list" id="tag-filters"></div>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: auto;">
+      <div class="sidebar-label">Actions</div>
+      <button class="filter-btn" onclick="importDefaults()">
+        <span>⬇ Charger exemples</span>
+      </button>
+      <button class="filter-btn" onclick="exportData()">
+        <span>↑ Exporter JSON</span>
+      </button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input type="text" id="search" placeholder="Rechercher un prompt..." oninput="render()">
+      </div>
+      <select id="sort" onchange="render()">
+        <option value="date">⏱ Plus récents</option>
+        <option value="rating">★ Mieux notés</option>
+        <option value="alpha">A-Z</option>
+      </select>
+    </div>
+    <div class="cards-grid" id="cards"></div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="add-modal" onclick="e=>e.target===this&&closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span class="dot"></span><span id="modal-title-text">Nouveau prompt</span></div>
+
+    <div class="form-row">
+      <label>Titre *</label>
+      <input type="text" id="f-title" placeholder="Ex: Déboguer une fonction JS">
+    </div>
+
+    <div class="form-row">
+      <label>Prompt *</label>
+      <textarea id="f-prompt" rows="5" placeholder="Colle le prompt complet ici..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <label>Tags (séparés par virgule)</label>
+      <input type="text" id="f-tags" placeholder="js, debug, frontend">
+    </div>
+
+    <div class="form-row">
+      <label>Source</label>
+      <input type="text" id="f-source" placeholder="GitHub / Personnel / awesome-ai-dev-prompts / ...">
+    </div>
+
+    <div class="form-row">
+      <label>Contexte d'utilisation</label>
+      <textarea id="f-context" rows="2" placeholder="Quand utiliser ce prompt ?"></textarea>
+    </div>
+
+    <div class="form-row">
+      <label>Résultat obtenu</label>
+      <div class="result-row">
+        <button class="result-opt" id="r-ok" onclick="selectResult('ok')">✓ Efficace</button>
+        <button class="result-opt" id="r-partial" onclick="selectResult('partial')">~ Partiel</button>
+        <button class="result-opt" id="r-ko" onclick="selectResult('ko')">✗ Inefficace</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label>Note</label>
+      <div class="rating-row" id="rating-row">
+        <button class="rating-star" onclick="setRating(1)">★</button>
+        <button class="rating-star" onclick="setRating(2)">★</button>
+        <button class="rating-star" onclick="setRating(3)">★</button>
+        <button class="rating-star" onclick="setRating(4)">★</button>
+        <button class="rating-star" onclick="setRating(5)">★</button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="savePrompt()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal" onclick="e=>e.target===this&&closeDetail()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
+    <div class="modal-title"><span class="dot"></span><span id="detail-title"></span></div>
+    <div class="detail-prompt" id="detail-prompt">
+      <button class="btn btn-ghost copy-overlay" onclick="copyDetail()" style="font-size:11px;padding:4px 10px;">⎘ Copier</button>
+    </div>
+    <div id="detail-meta" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;"></div>
+    <div id="detail-context" style="margin-bottom:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="detail-del">✕ Supprimer</button>
+      <button class="btn btn-ghost" id="detail-edit">✎ Modifier</button>
+      <button class="btn btn-primary" onclick="copyDetail()">⎘ Copier le prompt</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TAGS_COLORS = {
+  js:'tag-js', javascript:'tag-js', css:'tag-css', debug:'tag-debug', debugging:'tag-debug',
+  git:'tag-git', html:'tag-html', architecture:'tag-arch', arch:'tag-arch',
+  api:'tag-api', rest:'tag-api', review:'tag-review', refactor:'tag-review',
+  frontend:'tag-css', backend:'tag-default', react:'tag-js', node:'tag-js',
+};
+
+let prompts = JSON.parse(localStorage.getItem('pdt-prompts') || '[]');
+let currentFilter = 'all';
+let editingId = null;
+let currentRating = 0;
+let currentResult = '';
+let detailId = null;
+
+const DEFAULT_PROMPTS = [
+  {
+    id: uid(), title: "Déboguer une fonction JS", createdAt: new Date().toISOString(),
+    prompt: "Tu es un expert JavaScript senior. Analyse ce code, identifie les bugs potentiels, explique-les clairement et propose une version corrigée avec des commentaires.\n\n[COLLER LE CODE ICI]",
+    tags: ['js','debug'], source: 'awesome-ai-dev-prompts', context: 'Quand une fonction ne se comporte pas comme prévu', result: 'ok', rating: 5
+  },
+  {
+    id: uid(), title: "Générer du boilerplate HTML/CSS", createdAt: new Date().toISOString(),
+    prompt: "Génère un template HTML5 propre avec : reset CSS moderne, variables CSS pour le thème, structure sémantique (header/main/footer), responsive avec mobile-first. Pas de framework, Vanilla CSS uniquement.",
+    tags: ['html','css'], source: 'Personnel', context: 'Pour démarrer rapidement un projet web', result: 'ok', rating: 4
+  },
+  {
+    id: uid(), title: "Review de code junior", createdAt: new Date().toISOString(),
+    prompt: "Tu es un développeur senior bienveillant. Fais une code review de ce code comme si tu guidais un junior : points positifs, points à améliorer, bonnes pratiques manquantes. Sois précis et pédagogue.\n\n[CODE À REVIEW]",
+    tags: ['review','js'], source: 'awesome-reviewers (GitHub)', context: 'Avant de commit ou de montrer son code', result: 'ok', rating: 5
+  },
+  {
+    id: uid(), title: "Expliquer un concept tech", createdAt: new Date().toISOString(),
+    prompt: "Explique [CONCEPT] comme si j'avais 3 mois d'expérience en dev web. Utilise une analogie concrète, puis donne un exemple de code simple et commenté, puis dis-moi quand l'utiliser en pratique.",
+    tags: ['js','arch'], source: 'Personnel', context: 'Pour apprendre rapidement un nouveau concept', result: 'ok', rating: 4
+  },
+  {
+    id: uid(), title: "Commandes Git essentielles", createdAt: new Date().toISOString(),
+    prompt: "Je suis dans cette situation Git : [DÉCRIRE]. Quelle(s) commande(s) exacte(s) dois-je utiliser ? Explique ce que chaque commande fait avant de me la donner. Signale si l'action est irréversible.",
+    tags: ['git'], source: 'Personnel', context: 'Quand on est perdu avec Git', result: 'ok', rating: 5
+  },
+  {
+    id: uid(), title: "Construire une API REST", createdAt: new Date().toISOString(),
+    prompt: "Tu es un architecte backend expert. Je veux construire une API REST pour [DÉCRIRE APP]. Donne-moi : la structure des routes, les bonnes pratiques REST, la gestion des erreurs, et un exemple de code pour les endpoints CRUD principaux.",
+    tags: ['api','backend','arch'], source: 'awesome-ai-dev-prompts', context: 'Pour démarrer un projet backend', result: 'partial', rating: 3
+  },
+];
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function save() {
+  localStorage.setItem('pdt-prompts', JSON.stringify(prompts));
+}
+
+function toast(msg, color='var(--green)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.style.color = color;
+  t.style.boxShadow = `0 0 20px ${color}33`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getTagClass(tag) {
+  return TAGS_COLORS[tag.toLowerCase()] || 'tag-default';
+}
+
+function renderTag(tag) {
+  return `<span class="tag ${getTagClass(tag)}">${tag}</span>`;
+}
+
+function renderStars(rating, interactive=false, id='') {
+  return [1,2,3,4,5].map(i =>
+    `<button class="star ${i<=rating?'active':''}" ${interactive?`onclick="rateCard('${id}',${i},event)"`:''}>★</button>`
+  ).join('');
+}
+
+function renderResult(result) {
+  if (!result) return '';
+  const map = { ok: ['result-ok','✓ Efficace'], partial: ['result-partial','~ Partiel'], ko: ['result-ko','✗ Inefficace'] };
+  const [cls, label] = map[result] || ['',''];
+  return `<span class="result-badge ${cls}">${label}</span>`;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' });
+}
+
+function getFiltered() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const sort = document.getElementById('sort').value;
+
+  let list = prompts.filter(p => {
+    if (q && !p.title.toLowerCase().includes(q) && !p.prompt.toLowerCase().includes(q) && !p.tags.join(' ').includes(q)) return false;
+    if (currentFilter === 'all') return true;
+    if (currentFilter === '★★★★★') return p.rating >= 4;
+    if (currentFilter === 'ok') return p.result === 'ok';
+    return p.tags.map(t=>t.toLowerCase()).includes(currentFilter.toLowerCase());
+  });
+
+  if (sort === 'rating') list.sort((a,b) => (b.rating||0)-(a.rating||0));
+  else if (sort === 'alpha') list.sort((a,b) => a.title.localeCompare(b.title));
+  else list.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+
+  return list;
+}
+
+function render() {
+  const list = getFiltered();
+  const container = document.getElementById('cards');
+
+  // Update counts
+  document.getElementById('count-all').textContent = prompts.length;
+  document.getElementById('count-top').textContent = prompts.filter(p=>p.rating>=4).length;
+  document.getElementById('count-ok').textContent = prompts.filter(p=>p.result==='ok').length;
+  document.getElementById('stats-pill').textContent = `${prompts.length} prompt${prompts.length!==1?'s':''}`;
+
+  // Tag sidebar
+  const allTags = [...new Set(prompts.flatMap(p=>p.tags))].sort();
+  const tagFilters = document.getElementById('tag-filters');
+  tagFilters.innerHTML = allTags.map(tag => {
+    const count = prompts.filter(p=>p.tags.includes(tag)).length;
+    const active = currentFilter === tag ? 'active' : '';
+    return `<button class="filter-btn ${active}" onclick="setFilter('${tag}',this)">
+      <span># ${tag}</span><span class="count">${count}</span>
+    </button>`;
+  }).join('');
+
+  if (!list.length) {
+    container.innerHTML = `<div class="empty">
+      <div class="empty-icon">⌨</div>
+      <div class="empty-title">${prompts.length===0?'Aucun prompt encore.':'Aucun résultat.'}</div>
+      <p>${prompts.length===0?'Ajoute ton premier prompt ou charge les exemples.':'Essaie une autre recherche.'}</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = list.map(p => `
+    <div class="card" onclick="openDetail('${p.id}')">
+      <div class="card-header">
+        <div class="card-title">${p.title}</div>
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="icon-btn copy" onclick="copyPrompt('${p.id}')" title="Copier">⎘</button>
+          <button class="icon-btn" onclick="openEdit('${p.id}')" title="Modifier">✎</button>
+          <button class="icon-btn del" onclick="deletePrompt('${p.id}')" title="Supprimer">✕</button>
+        </div>
+      </div>
+      <div class="card-prompt">${p.prompt}</div>
+      <div class="card-footer">
+        <div class="tags">${p.tags.map(renderTag).join('')}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${renderResult(p.result)}
+          <div class="stars">${renderStars(p.rating||0, true, p.id)}</div>
+          <span class="card-date">${formatDate(p.createdAt)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  render();
+}
+
+function rateCard(id, rating, e) {
+  e.stopPropagation();
+  const p = prompts.find(x=>x.id===id);
+  if (p) { p.rating = rating; save(); render(); }
+}
+
+function copyPrompt(id) {
+  const p = prompts.find(x=>x.id===id);
+  if (!p) return;
+  navigator.clipboard.writeText(p.prompt).then(() => toast('⎘ Prompt copié !'));
+}
+
+function deletePrompt(id) {
+  prompts = prompts.filter(x=>x.id!==id);
+  save(); render();
+  toast('Prompt supprimé', 'var(--red)');
+  closeDetail();
+}
+
+// Add/Edit modal
+function openAddModal() {
+  editingId = null;
+  currentRating = 0;
+  currentResult = '';
+  document.getElementById('modal-title-text').textContent = 'Nouveau prompt';
+  ['f-title','f-prompt','f-tags','f-source','f-context'].forEach(id=>document.getElementById(id).value='');
+  updateRatingUI();
+  updateResultUI();
+  document.getElementById('add-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('f-title').focus(), 100);
+}
+
+function openEdit(id) {
+  const p = prompts.find(x=>x.id===id);
+  if (!p) return;
+  editingId = id;
+  currentRating = p.rating || 0;
+  currentResult = p.result || '';
+  document.getElementById('modal-title-text').textContent = 'Modifier le prompt';
+  document.getElementById('f-title').value = p.title;
+  document.getElementById('f-prompt').value = p.prompt;
+  document.getElementById('f-tags').value = p.tags.join(', ');
+  document.getElementById('f-source').value = p.source || '';
+  document.getElementById('f-context').value = p.context || '';
+  updateRatingUI();
+  updateResultUI();
+  closeDetail();
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+function setRating(r) {
+  currentRating = r;
+  updateRatingUI();
+}
+
+function updateRatingUI() {
+  document.querySelectorAll('.rating-star').forEach((s,i) => {
+    s.classList.toggle('active', i < currentRating);
+  });
+}
+
+function selectResult(r) {
+  currentResult = currentResult === r ? '' : r;
+  updateResultUI();
+}
+
+function updateResultUI() {
+  ['ok','partial','ko'].forEach(r => {
+    const btn = document.getElementById('r-'+r);
+    btn.className = 'result-opt' + (currentResult===r ? ` sel-${r}` : '');
+  });
+}
+
+function savePrompt() {
+  const title = document.getElementById('f-title').value.trim();
+  const prompt = document.getElementById('f-prompt').value.trim();
+  if (!title || !prompt) { toast('Titre et prompt requis !', 'var(--red)'); return; }
+
+  const tags = document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const source = document.getElementById('f-source').value.trim();
+  const context = document.getElementById('f-context').value.trim();
+
+  if (editingId) {
+    const p = prompts.find(x=>x.id===editingId);
+    Object.assign(p, { title, prompt, tags, source, context, rating: currentRating, result: currentResult });
+  } else {
+    prompts.unshift({ id: uid(), title, prompt, tags, source, context, rating: currentRating, result: currentResult, createdAt: new Date().toISOString() });
+  }
+
+  save(); render(); closeModal();
+  toast(editingId ? '✓ Prompt mis à jour' : '✓ Prompt ajouté');
+}
+
+// Detail modal
+function openDetail(id) {
+  const p = prompts.find(x=>x.id===id);
+  if (!p) return;
+  detailId = id;
+
+  document.getElementById('detail-title').textContent = p.title;
+  document.getElementById('detail-prompt').innerHTML = `${p.prompt.replace(/</g,'&lt;')}<button class="btn btn-ghost copy-overlay" onclick="copyDetail()" style="font-size:11px;padding:4px 10px;">⎘ Copier</button>`;
+
+  const meta = document.getElementById('detail-meta');
+  meta.innerHTML = [
+    p.source ? `<span class="source-pill">◈ ${p.source}</span>` : '',
+    renderResult(p.result),
+    `<div class="stars">${renderStars(p.rating||0)}</div>`,
+    `<span style="color:var(--text3);font-size:11px;">Ajouté le ${formatDate(p.createdAt)}</span>`
+  ].join('');
+
+  const ctx = document.getElementById('detail-context');
+  if (p.context) {
+    ctx.innerHTML = `<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Contexte</div><div style="font-size:12px;color:var(--text2);line-height:1.6;">${p.context}</div>`;
+  } else ctx.innerHTML = '';
+
+  const tags = document.getElementById('detail-meta');
+  const tagsHtml = p.tags.map(renderTag).join('');
+  meta.innerHTML += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;">${tagsHtml}</div>`;
+
+  document.getElementById('detail-del').onclick = () => deletePrompt(id);
+  document.getElementById('detail-edit').onclick = () => openEdit(id);
+  document.getElementById('detail-modal').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-modal').classList.remove('open');
+}
+
+function copyDetail() {
+  const p = prompts.find(x=>x.id===detailId);
+  if (p) navigator.clipboard.writeText(p.prompt).then(()=>toast('⎘ Prompt copié !'));
+}
+
+function importDefaults() {
+  const newOnes = DEFAULT_PROMPTS.filter(d => !prompts.find(p=>p.title===d.title));
+  prompts = [...newOnes.map(p=>({...p, id:uid(), createdAt:new Date().toISOString()})), ...prompts];
+  save(); render();
+  toast(`⬇ ${newOnes.length} prompt(s) importé(s)`);
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(prompts, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'prompt-dev-tracker.json';
+  a.click();
+  toast('↑ Export JSON téléchargé');
+}
+
+// Init
+render();
+</script>
+</body>
+</html>
